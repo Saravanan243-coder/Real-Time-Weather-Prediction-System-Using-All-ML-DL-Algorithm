@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Live Weather | WeatherAUS Predictor{% endblock %}
+
+{% block content %}
+<nav class="navbar">
+    <div class="container">
+        <div class="nav-brand">
+            <a href="{{ url_for('dashboard') }}" class="back-link">← Back</a>
+            <span class="app-icon ml-2">🛰️</span> Live Weather
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container page-content pb-xl">
+    <div class="page-header animate-in">
+        <h1>Live Weather & Forecast</h1>
+        <p>Real-time conditions and rain predictions using live API data — pick any date within the next 5 days, or check the next hour.</p>
+    </div>
+
+    <!-- SECTION A: City Search -->
+    <section class="card p-lg animate-in">
+        <div class="form-group" style="max-width: 400px;">
+            <label for="city-input">City</label>
+            <div class="input-wrapper">
+                <span class="input-icon">📍</span>
+                <input type="text" id="city-input" class="input-field" placeholder="e.g. Chennai" value="Chennai">
+            </div>
+        </div>
+        <button id="search-btn" class="btn btn-primary">Get Live Data 🔄</button>
+        <div id="search-status" class="text-sm text-gray mt-sm"></div>
+    </section>
+
+    <!-- SECTION B: Current Conditions -->
+    <section class="mt-xl animate-in" style="animation-delay: 0.1s;">
+        <h2 class="section-title">🌤️ Right Now</h2>
+        <div id="current-weather-card" class="card p-lg hidden">
+            <div class="metrics-row" id="current-weather-grid"></div>
+            <p class="text-center mt-sm" id="current-weather-desc"></p>
+        </div>
+    </section>
+
+    <!-- SECTION C: Model + Date Selection -->
+    <section class="mt-xl animate-in" style="animation-delay: 0.2s;">
+        <h2 class="section-title">🔮 Predict For a Date</h2>
+        <div class="card p-lg">
+            <div class="form-group" style="max-width: 400px;">
+                <label for="model-select">Model</label>
+                <select id="model-select" class="input-field">
+                    <optgroup label="Machine Learning">
+                        {% for m in ml_models %}
+                        <option value="{{ m.name }}">{{ m.display_name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    <optgroup label="Deep Learning">
+                        {% for m in dl_models %}
+                        <option value="{{ m.name }}">{{ m.display_name }}</option>
+                        {% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Choose a date (next 5 days)</label>
+                <div id="date-chips" class="compass-select">
+                    <span class="text-sm text-gray">Click "Get Live Data" first to load dates.</span>
+                </div>
+            </div>
+
+            <button type="button" id="predict-date-btn" class="btn predict-btn btn-primary mt-md">
+                Predict Rain For Selected Date ⚡
+            </button>
+
+            <div class="mt-lg">
+                <button type="button" id="predict-hour-btn" class="btn predict-btn btn-secondary">
+                    What Happens In The Next 1 Hour? ⏱️
+                </button>
+            </div>
+
+            <!-- Result Display -->
+            <div id="prediction-result" class="prediction-result hidden mt-lg">
+                <div class="result-card" id="result-card">
+                    <div class="result-icon" id="result-icon">🌤️</div>
+                    <h2 id="result-message">Analyzing...</h2>
+                    <div class="confidence-section mt-md">
+                        <div class="flex justify-between mb-sm text-sm">
+                            <span>Confidence</span>
+                            <span id="confidence-text">0%</span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" id="confidence-fill"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+let selectedDate = null;
+let latestBundle = null;
+
+const cityInput = document.getElementById('city-input');
+const searchBtn = document.getElementById('search-btn');
+const searchStatus = document.getElementById('search-status');
+const currentCard = document.getElementById('current-weather-card');
+const currentGrid = document.getElementById('current-weather-grid');
+const currentDesc = document.getElementById('current-weather-desc');
+const dateChips = document.getElementById('date-chips');
+const modelSelect = document.getElementById('model-select');
+const resultDiv = document.getElementById('prediction-result');
+const resultCard = document.getElementById('result-card');
+const resultIcon = document.getElementById('result-icon');
+const resultMessage = document.getElementById('result-message');
+const confidenceText = document.getElementById('confidence-text');
+const confidenceFill = document.getElementById('confidence-fill');
+
+function metricBox(value, label) {
+    return `<div class="metric-card acc"><div class="value">${value}</div><div class="label">${label}</div></div>`;
+}
+
+function showResult(prediction, probability) {
+    resultDiv.classList.remove('hidden');
+    const isRain = prediction === 'Yes';
+    resultCard.className = 'result-card ' + (isRain ? 'result-rain' : 'result-no-rain');
+    resultIcon.textContent = isRain ? '🌧️' : '☀️';
+    resultMessage.textContent = isRain ? 'Rain Expected!' : 'No Rain Expected';
+    const pct = Math.round(probability * 100);
+    confidenceText.textContent = pct + '%';
+    setTimeout(() => { confidenceFill.style.width = pct + '%'; }, 100);
+}
+
+searchBtn.addEventListener('click', async () => {
+    const city = cityInput.value.trim() || 'Chennai';
+    searchStatus.textContent = 'Fetching live data...';
+    try {
+        const res = await fetch(`/api/live-weather?city=${encodeURIComponent(city)}`);
+        const data = await res.json();
+        if (data.error) {
+            searchStatus.textContent = '❌ ' + data.error;
+            return;
+        }
+        latestBundle = data;
+        searchStatus.textContent = '✅ Updated just now';
+
+        currentCard.classList.remove('hidden');
+        currentGrid.innerHTML =
+            metricBox(data.current.temp + '°C', 'Temperature') +
+            metricBox(data.current.humidity + '%', 'Humidity') +
+            metricBox(data.current.pressure + ' hPa', 'Pressure') +
+            metricBox(data.current.wind_speed + ' km/h', 'Wind Speed');
+        currentDesc.textContent = 'Conditions: ' + data.current.weather;
+
+        dateChips.innerHTML = '';
+        data.daily_dates.forEach((date, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'compass-btn' + (i === 0 ? ' active' : '');
+            btn.textContent = date;
+            btn.style.padding = '8px 14px';
+            btn.onclick = () => {
+                document.querySelectorAll('#date-chips .compass-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedDate = date;
+            };
+            dateChips.appendChild(btn);
+        });
+        selectedDate = data.daily_dates[0];
+    } catch (err) {
+        searchStatus.textContent = '❌ Could not fetch weather data.';
+    }
+});
+
+document.getElementById('predict-date-btn').addEventListener('click', async () => {
+    if (!selectedDate) {
+        searchStatus.textContent = '⚠️ Get live data first, then pick a date.';
+        return;
+    }
+    resultMessage.textContent = 'Analyzing...';
+    resultDiv.classList.remove('hidden');
+    try {
+        const res = await fetch('/api/predict-date', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                city: cityInput.value.trim() || 'Chennai',
+                model_name: modelSelect.value,
+                date: selectedDate
+            })
+        });
+        const data = await res.json();
+        if (data.error) {
+            resultMessage.textContent = '❌ ' + data.error;
+            return;
+        }
+        showResult(data.prediction, data.probability);
+    } catch (err) {
+        resultMessage.textContent = '❌ Prediction failed.';
+    }
+});
+
+document.getElementById('predict-hour-btn').addEventListener('click', async () => {
+    resultMessage.textContent = 'Analyzing...';
+    resultDiv.classList.remove('hidden');
+    try {
+        const res = await fetch('/api/predict-next-hour', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                city: cityInput.value.trim() || 'Chennai',
+                model_name: modelSelect.value
+            })
+        });
+        const data = await res.json();
+        if (data.error) {
+            resultMessage.textContent = '❌ ' + data.error;
+            return;
+        }
+        showResult(data.prediction, data.probability);
+    } catch (err) {
+        resultMessage.textContent = '❌ Prediction failed.';
+    }
+});
+</script>
+{% endblock %}

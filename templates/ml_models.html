@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}ML Models | WeatherAUS Predictor{% endblock %}
+
+{% block content %}
+<nav class="navbar">
+    <div class="container">
+        <div class="nav-brand">
+            <a href="{{ url_for('dashboard') }}" class="back-link">← Back</a>
+            <span class="app-icon ml-2">🤖</span> ML Models
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container page-content">
+    <div class="page-header animate-in">
+        <h1>Machine Learning Models</h1>
+        <p>Select a model to view performance metrics and make real-time predictions.</p>
+    </div>
+
+    <div class="model-grid">
+        {% for model in models %}
+        <div class="model-card animate-in" style="animation-delay: {{ loop.index0 * 0.1 }}s;">
+            <div class="model-header">
+                <span class="model-icon">{{ model.icon }}</span>
+                <h3>{{ model.display_name }}</h3>
+            </div>
+            <p class="model-desc">{{ model.desc }}</p>
+            <a href="{{ url_for('result', model_type='ml', model_name=model.name) }}" class="btn btn-primary w-full mt-auto text-center">View Results →</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

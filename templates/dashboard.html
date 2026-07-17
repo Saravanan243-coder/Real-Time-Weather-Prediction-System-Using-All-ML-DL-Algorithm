@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | WeatherAUS Predictor{% endblock %}
+
+{% block content %}
+<nav class="navbar">
+    <div class="container">
+        <div class="nav-brand">
+            <span class="app-icon">🌦️</span> WeatherAUS
+        </div>
+        <div class="nav-links">
+            <span class="welcome-text">Welcome, Admin</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline">Logout</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="hero-section animate-in" style="animation-delay: 0.1s;">
+        <h1>Rain Prediction Dashboard</h1>
+        <p>Explore machine learning and deep learning models trained on the Rain in Australia dataset.</p>
+    </div>
+
+    <div class="stats-row animate-in" style="animation-delay: 0.2s;">
+        <div class="stat-card">
+            <div class="stat-value">145,462</div>
+            <div class="stat-label">Total Records</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">23</div>
+            <div class="stat-label">Features</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">RainTomorrow</div>
+            <div class="stat-label">Target Variable</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">84-86%</div>
+            <div class="stat-label">Avg. Accuracy</div>
+        </div>
+    </div>
+
+    <div class="main-cards animate-in" style="animation-delay: 0.3s;">
+        <a href="{{ url_for('ml_models') }}" class="main-card ml">
+            <div class="card-icon">🤖</div>
+            <h2>Machine Learning</h2>
+            <p>8 Classical ML algorithms trained on weather data including Random Forest, SVM, and XGBoost.</p>
+            <span class="card-link">Explore ML Models →</span>
+        </a>
+        
+        <a href="{{ url_for('dl_models') }}" class="main-card dl">
+            <div class="card-icon">🧠</div>
+            <h2>Deep Learning</h2>
+            <p>4 Neural Network architectures designed for complex weather pattern recognition.</p>
+            <span class="card-link">Explore DL Models →</span>
+        </a>
+
+        <a href="{{ url_for('live') }}" class="main-card ml">
+            <div class="card-icon">🛰️</div>
+            <h2>Live Weather</h2>
+            <p>Real-time weather data with rain predictions for today, the next 7 days, or the next hour.</p>
+            <span class="card-link">Go Live →</span>
+        </a>
+    </div>
+</div>
+{% endblock %}
